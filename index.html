@@ -12,7 +12,7 @@
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;min-height:100vh}
 .container{max-width:1280px;margin:0 auto;padding:16px}
 .login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px}
-.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:36px 32px;width:100%;max-width:380px;text-align:center}
+.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:36px 32px;width:100%;max-width:420px;text-align:center}
 .login-box .logo{font-size:28px;font-weight:700;letter-spacing:-1px;margin-bottom:4px}.login-box .logo span{color:var(--blue)}
 .login-box .subtitle{font-size:13px;color:var(--text3);margin-bottom:28px}
 .pin-input-group{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
@@ -22,7 +22,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 .login-error{color:var(--red);font-size:12px;margin-top:12px;min-height:18px}
 .login-setup{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
 .login-setup summary{font-size:12px;color:var(--text3);cursor:pointer;margin-bottom:12px}
-.login-setup input[type="text"]{width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;margin:6px 0;outline:none}
+.login-setup input[type="text"],.login-setup input[type="password"]{width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;margin:6px 0;outline:none}
 .login-setup .hint{font-size:11px;color:var(--text3);margin-bottom:8px;text-align:left}
 .setup-btn{width:100%;padding:10px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;margin-top:4px}
 .header{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;gap:8px}
@@ -87,8 +87,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 <div class="login-error" id="login-error"></div>
 <details class="login-setup" id="setup-section">
 <summary>Primera vez — configurar acceso</summary>
-<p class="hint">Introduce el Gist ID y elige un PIN de 6 dígitos:</p>
-<input type="text" id="setup-gist" placeholder="Gist ID"><input type="text" id="setup-pin" placeholder="PIN 6 dígitos" maxlength="6">
+<p class="hint">Introduce los datos del exporter y elige un PIN de 6 dígitos:</p>
+<input type="text" id="setup-gist" placeholder="Gist ID (ej: 277a1ec8c5...)">
+<input type="password" id="setup-token" placeholder="GitHub Token (ghp_...)">
+<input type="text" id="setup-pin" placeholder="PIN 6 dígitos" maxlength="6">
 <button class="setup-btn" onclick="setupAccess()">Guardar</button>
 <div class="login-error" id="setup-error" style="margin-top:8px"></div>
 </details></div></div>
@@ -102,33 +104,69 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 <div class="pair-grid" id="pair-grid"></div>
 <div id="signals-section"></div>
 <div id="events-section"></div>
-<div class="footer">VORTEX Capital v5 — TFM UOC 2026 — Refresh 30s<br><a href="#" onclick="showChangePin()" style="color:var(--text3)">Cambiar PIN</a></div>
+<div class="footer">VORTEX Capital v5 — TFM UOC 2026 — Refresh 60s<br><a href="#" onclick="showChangePin()" style="color:var(--text3)">Cambiar PIN</a></div>
 </div>
 
 <script>
 function xorEnc(t,k){let r='';for(let i=0;i<t.length;i++)r+=String.fromCharCode(t.charCodeAt(i)^k.charCodeAt(i%k.length));return btoa(r)}
 function xorDec(e,k){try{const d=atob(e);let r='';for(let i=0;i<d.length;i++)r+=String.fromCharCode(d.charCodeAt(i)^k.charCodeAt(i%k.length));return r}catch{return''}}
-const SK='vortex_enc',RM=30000;let gistId='',charts={},refreshTimer=null;
+const SK='vortex_enc',TK='vortex_tok',RM=60000;let gistId='',ghToken='',charts={},refreshTimer=null;
 function getEnc(){return localStorage.getItem(SK)||''}
-function setupAccess(){const g=document.getElementById('setup-gist').value.trim(),p=document.getElementById('setup-pin').value.trim(),e=document.getElementById('setup-error');
-if(!g){e.textContent='Falta Gist ID';return}if(!/^\d{6}$/.test(p)){e.textContent='PIN: 6 dígitos';return}
-const enc=xorEnc(g,p);localStorage.setItem(SK,enc);e.style.color='var(--green)';e.textContent='OK. Introduce PIN arriba.'}
-function attemptLogin(){const dg=document.querySelectorAll('#pin-group .pin-digit');let pin='';dg.forEach(d=>pin+=d.value);
-const err=document.getElementById('login-error');if(pin.length!==6){err.textContent='6 dígitos';return}
-const enc=getEnc();if(!enc){err.textContent='Configura primero abajo';return}
-const dec=xorDec(enc,pin);if(!/^[a-f0-9]{20,40}$/.test(dec)){err.textContent='Código incorrecto';dg.forEach(d=>{d.value='';d.style.borderColor='var(--red)'});
-setTimeout(()=>dg.forEach(d=>d.style.borderColor=''),1500);dg[0].focus();return}
-gistId=dec;document.getElementById('login-screen').style.display='none';document.getElementById('dashboard').style.display='block';startDashboard()}
-function logout(){gistId='';if(refreshTimer)clearInterval(refreshTimer);document.getElementById('dashboard').style.display='none';
-document.getElementById('login-screen').style.display='flex';document.querySelectorAll('#pin-group .pin-digit').forEach(d=>d.value='');document.getElementById('login-error').textContent=''}
-function showChangePin(){if(!confirm('¿Cambiar PIN?'))return;localStorage.removeItem(SK);logout();document.getElementById('setup-section').open=true}
+function getTok(){return localStorage.getItem(TK)||''}
+
+function setupAccess(){
+  const g=document.getElementById('setup-gist').value.trim();
+  const t=document.getElementById('setup-token').value.trim();
+  const p=document.getElementById('setup-pin').value.trim();
+  const e=document.getElementById('setup-error');
+  if(!g){e.textContent='Falta Gist ID';return}
+  if(!t||!t.startsWith('ghp_')){e.textContent='Token debe empezar por ghp_';return}
+  if(!/^\d{6}$/.test(p)){e.textContent='PIN: 6 dígitos';return}
+  localStorage.setItem(SK,xorEnc(g,p));
+  localStorage.setItem(TK,xorEnc(t,p));
+  e.style.color='var(--green)';e.textContent='OK. Introduce PIN arriba.'
+}
+
+function attemptLogin(){
+  const dg=document.querySelectorAll('#pin-group .pin-digit');let pin='';dg.forEach(d=>pin+=d.value);
+  const err=document.getElementById('login-error');
+  if(pin.length!==6){err.textContent='6 dígitos';return}
+  const enc=getEnc();const tok=getTok();
+  if(!enc||!tok){err.textContent='Configura primero abajo';return}
+  const decG=xorDec(enc,pin);const decT=xorDec(tok,pin);
+  if(!/^[a-f0-9]{20,40}$/.test(decG)||!decT.startsWith('ghp_')){
+    err.textContent='Código incorrecto';
+    dg.forEach(d=>{d.value='';d.style.borderColor='var(--red)'});
+    setTimeout(()=>dg.forEach(d=>d.style.borderColor=''),1500);dg[0].focus();return}
+  gistId=decG;ghToken=decT;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('dashboard').style.display='block';startDashboard()
+}
+
+function logout(){gistId='';ghToken='';if(refreshTimer)clearInterval(refreshTimer);
+  document.getElementById('dashboard').style.display='none';document.getElementById('login-screen').style.display='flex';
+  document.querySelectorAll('#pin-group .pin-digit').forEach(d=>d.value='');document.getElementById('login-error').textContent=''}
+
+function showChangePin(){if(!confirm('¿Cambiar PIN? Tendrás que introducir todos los datos de nuevo.'))return;
+  localStorage.removeItem(SK);localStorage.removeItem(TK);logout();document.getElementById('setup-section').open=true}
+
 document.addEventListener('DOMContentLoaded',()=>{const dg=document.querySelectorAll('#pin-group .pin-digit');
 dg.forEach((inp,i)=>{inp.addEventListener('input',()=>{inp.value=inp.value.replace(/\D/g,'').slice(0,1);if(inp.value&&i<dg.length-1)dg[i+1].focus();if(inp.value&&i===dg.length-1)document.getElementById('login-btn').focus()});
 inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!inp.value&&i>0)dg[i-1].focus();if(e.key==='Enter')attemptLogin()});
 inp.addEventListener('paste',e=>{e.preventDefault();const t=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);t.split('').forEach((c,j)=>{if(dg[j])dg[j].value=c})})});
-if(!getEnc())document.getElementById('setup-section').open=true});
+if(!getEnc()||!getTok())document.getElementById('setup-section').open=true});
 
-async function fetchData(){try{const r=await fetch('https://gist.githubusercontent.com/JDS1975/'+gistId+'/raw/vortex_dashboard.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;return await r.json()}catch(e){return null}}
+async function fetchData(){
+  try{
+    const r=await fetch('https://api.github.com/gists/'+gistId,{
+      cache:'no-store',
+      headers:{'Authorization':'token '+ghToken,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(!r.ok)throw 0;
+    const g=await r.json();
+    return JSON.parse(g.files['vortex_dashboard.json'].content);
+  }catch(e){console.error('Fetch error:',e);return null}
+}
 
 function fmtP(v){return v>100?v.toFixed(2):v.toFixed(5)}
 
@@ -169,9 +207,8 @@ y:{display:true,position:'right',grid:{color:'rgba(30,45,69,.5)'},ticks:{font:{s
 function renderSignals(d){const sec=document.getElementById('signals-section');
 const sigs=d.signals_csv||[];if(!sigs.length){sec.innerHTML='';return}
 let html='<h3 class="section-title">Señales del día — detalle completo</h3>';
-html+='<p class="tz-note">Horas en GMT+0 (signals.csv). Broker = GMT+2. El log usa hora broker.</p>';
-for(const s of sigs){
-const dir=s.direction||'';const passed=s.passed==='YES';
+html+='<p class="tz-note">Horas en GMT+0 (signals.csv). Broker = GMT+2.</p>';
+for(const s of sigs){const dir=s.direction||'';const passed=s.passed==='YES';
 const features=(s.top5_features||'').split('|').filter(f=>f.trim());
 let featHtml='';if(features.length){featHtml='<div style="grid-column:1/-1;margin-top:4px"><div class="label">Top features del modelo</div><div class="features-list">';
 for(const f of features)featHtml+=`<span class="feature-tag">${f.trim()}</span>`;featHtml+='</div></div>'}
@@ -212,7 +249,7 @@ html+='</tbody></table>';sec.innerHTML=html}
 function updateStatus(d){const dot=document.getElementById('status-dot'),txt=document.getElementById('status-text'),lu=document.getElementById('last-update');
 if(!d){dot.className='status-dot off';txt.textContent='Sin conexión';return}
 const exp=d.exported_at?new Date(d.exported_at):null,age=exp?(new Date()-exp):Infinity,mins=Math.round(age/60000);
-if(age<120000){dot.className='status-dot live';txt.textContent='En vivo'}
+if(age<180000){dot.className='status-dot live';txt.textContent='En vivo'}
 else if(age<600000){dot.className='status-dot stale';txt.textContent=`Hace ${mins} min`}
 else{dot.className='status-dot off';txt.textContent=`Hace ${mins} min`}
 lu.textContent=d.last_update?`Broker: ${d.last_update}`:''}
