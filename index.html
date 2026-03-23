@@ -128,7 +128,7 @@ inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!inp.value&&i>0)dg[i-
 inp.addEventListener('paste',e=>{e.preventDefault();const t=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);t.split('').forEach((c,j)=>{if(dg[j])dg[j].value=c})})});
 if(!getEnc())document.getElementById('setup-section').open=true});
 
-async function fetchData(){try{const r=await fetch('https://api.github.com/gists/'+gistId,{cache:'no-store'});if(!r.ok)throw 0;const g=await r.json();return JSON.parse(g.files['vortex_dashboard.json'].content)}catch(e){return null}}
+async function fetchData(){try{const r=await fetch('https://gist.githubusercontent.com/JDS1975/'+gistId+'/raw/vortex_dashboard.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;return await r.json()}catch(e){return null}}
 
 function fmtP(v){return v>100?v.toFixed(2):v.toFixed(5)}
 
